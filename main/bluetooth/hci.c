@@ -816,34 +816,35 @@ static void bt_hci_cmd_le_set_adv_param(void *cp) {
 }
 
 static void bt_hci_cmd_le_set_adv_data(void *cp) {
-    uint8_t adv_data[32] = {
+    uint8_t adv_data[31] = {
         0x02, BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR),
-        0x03, BT_DATA_UUID16_SOME, 0x0f, 0x18,
-        0x0a, BT_DATA_NAME_COMPLETE, 0x00
+        0x11, BT_DATA_UUID128_ALL, 0x00, 0x9a, 0x79, 0x76, 0xa1, 0x2f, 0x4b, 0x31, 0xb0, 0xfa, 0x80, 0x51, 0x56, 0x0f, 0x83, 0x56
     };
+
     struct bt_hci_cp_le_set_adv_data *le_set_adv_data = (struct bt_hci_cp_le_set_adv_data *)&bt_hci_pkt_tmp.cp;
     printf("# %s\n", __FUNCTION__);
 
-    adv_data[7] = strlen(bt_hci_get_device_name()) + 1;
-    strncat((char *)adv_data, bt_hci_get_device_name(), 22);
-
     memset(le_set_adv_data->data, 0, sizeof(le_set_adv_data->data));
-    le_set_adv_data->len = strlen((char *)adv_data);
-    memcpy(le_set_adv_data->data, adv_data, strlen((char *)adv_data));
+    le_set_adv_data->len = sizeof(adv_data);
+    memcpy(le_set_adv_data->data, adv_data, sizeof(adv_data));
 
     bt_hci_cmd(BT_HCI_OP_LE_SET_ADV_DATA, sizeof(*le_set_adv_data));
 }
 
 static void bt_hci_cmd_le_set_scan_rsp_data(void *cp) {
-    uint8_t scan_rsp[] = {
-        0x11, BT_DATA_UUID128_ALL, 0x56, 0x9a, 0x79, 0x76, 0xa1, 0x2f, 0x4b, 0x31, 0xb0, 0xfa, 0x80, 0x51, 0x56, 0x0f, 0x83, 0x00
+    uint8_t scan_rsp[31] = {
+        0x0a, BT_DATA_NAME_COMPLETE, 0x00
     };
+
     struct bt_hci_cp_le_set_scan_rsp_data *le_set_scan_rsp_data = (struct bt_hci_cp_le_set_scan_rsp_data *)&bt_hci_pkt_tmp.cp;
     printf("# %s\n", __FUNCTION__);
 
+    scan_rsp[0] = strlen(bt_hci_get_device_name()) + 1;
+    strncat((char *)scan_rsp, bt_hci_get_device_name(), 22);
+
     memset(le_set_scan_rsp_data->data, 0, sizeof(le_set_scan_rsp_data->data));
-    le_set_scan_rsp_data->len = sizeof(scan_rsp);
-    memcpy(le_set_scan_rsp_data->data, scan_rsp, sizeof(scan_rsp));
+    le_set_scan_rsp_data->len = strlen((char *)scan_rsp);
+    memcpy(le_set_scan_rsp_data->data, scan_rsp, strlen((char *)scan_rsp));
 
     bt_hci_cmd(BT_HCI_OP_LE_SET_SCAN_RSP_DATA, sizeof(*le_set_scan_rsp_data));
 }
