@@ -46,6 +46,7 @@ enum {
     GATT_GRP_HDL = 0x0001,
     GATT_SRVC_CH_ATT_HDL,
     GATT_SRVC_CH_CHRC_HDL,
+
     GAP_GRP_HDL = 0x0014,
     GAP_DEV_NAME_ATT_HDL,
     GAP_DEV_NAME_CHRC_HDL,
@@ -53,6 +54,7 @@ enum {
     GAP_APP_CHRC_HDL,
     GAP_PPCP_ATT_HDL,
     GAP_PPCP_CHRC_HDL,
+
     BR_GRP_HDL = 0x0040,
     BR_GLBL_CFG_ATT_HDL,
     BR_GLBL_CFG_CHRC_HDL,
@@ -78,11 +80,22 @@ enum {
     BR_MC_DATA_CHRC_HDL,
     BR_BD_ADDR_ATT_HDL,
     BR_BD_ADDR_CHRC_HDL, /* Deprecated, use BR_CFG_CMD_CHRC_HDL */
-    LAST_HDL = BR_BD_ADDR_CHRC_HDL,
+
+    MIDI_GRP_HDL = 0x0080,
+    MIDI_DATA_IO_ATT_HDL,
+    MIDI_DATA_IO_CHRC_HDL,
+    MIDI_DATA_IO_CCCD_HDL,
+
+    LAST_HDL = MIDI_DATA_IO_CCCD_HDL,
     MAX_HDL,
 };
 
 static uint8_t br_grp_base_uuid[] = {0x00, 0x9a, 0x79, 0x76, 0xa1, 0x2f, 0x4b, 0x31, 0xb0, 0xfa, 0x80, 0x51, 0x56, 0x0f, 0x83, 0x56};
+
+static uint8_t midi_svc_uuid[] = { 0x00, 0xc7, 0xc4, 0x4e, 0xe3, 0x6c, 0x51, 0xa7,
+                                   0x33, 0x4b, 0xe8, 0xed, 0x5a, 0x0e, 0xb8, 0x03 };
+static uint8_t midi_char_uuid[] = { 0xf3, 0x6b, 0x10, 0x9d, 0x66, 0xf2, 0xa9, 0xa1,
+                                    0x12, 0x41, 0x68, 0x38, 0xdb, 0xe5, 0x72, 0x77 };
 
 static uint16_t mtu = 23;
 static esp_ota_handle_t ota_hdl = 0;
@@ -189,6 +202,39 @@ static void bt_att_cmd_blueretro_char_read_type_rsp(uint16_t handle, uint16_t st
     *data = (rd_type_rsp->data->handle - BR_GLBL_CFG_ATT_HDL)/2 + 1;
 
     bt_att_cmd(handle, BT_ATT_OP_READ_TYPE_RSP, sizeof(rd_type_rsp->len) + rd_type_rsp->len);
+}
+
+static void bt_att_cmd_midi_char_read_type_rsp(uint16_t handle) {
+    struct bt_att_read_type_rsp *rd_type_rsp = (struct bt_att_read_type_rsp *)bt_hci_pkt_tmp.att_data;
+    uint8_t *data = rd_type_rsp->data->value;
+
+    printf("# %s\n", __FUNCTION__);
+
+    rd_type_rsp->len = 21;
+
+    rd_type_rsp->data->handle = MIDI_DATA_IO_ATT_HDL;
+    *data = BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE_WITHOUT_RESP | BT_GATT_CHRC_NOTIFY;
+    data++;
+    *(uint16_t *)data = MIDI_DATA_IO_CHRC_HDL;
+    data += 2;
+    memcpy(data, midi_char_uuid, sizeof(midi_char_uuid));
+
+    bt_att_cmd(handle, BT_ATT_OP_READ_TYPE_RSP, sizeof(rd_type_rsp->len) + rd_type_rsp->len);
+}
+
+static void bt_att_cmd_midi_find_info_req(uint16_t handle) {
+    struct bt_att_find_info_rsp *find_info_rsp = (struct bt_att_find_info_rsp *)bt_hci_pkt_tmp.att_data;
+    uint8_t *data = find_info_rsp->info;
+
+    printf("# %s\n", __FUNCTION__);
+
+    find_info_rsp->format = BT_ATT_INFO_16;
+
+    *(uint16_t *)data = MIDI_DATA_IO_CCCD_HDL;
+    data += 2;
+    *(uint16_t *)data = BT_UUID_GATT_CCC;
+
+    bt_att_cmd(handle, BT_ATT_OP_FIND_INFO_RSP, sizeof(find_info_rsp->format) + 4);
 }
 
 static void bt_att_cmd_dev_name_rd_rsp(uint16_t handle) {
@@ -402,13 +448,23 @@ static void bt_att_cmd_read_group_rsp(uint16_t handle, uint16_t start, uint16_t 
             len += rd_grp_rsp->len;
         }
     }
+    else if (start <= BR_BD_ADDR_CHRC_HDL) {
+        rd_grp_rsp->len = 20;
+
+        if (start <= BR_GRP_HDL && end >= BR_BD_ADDR_CHRC_HDL) {
+            gatt_data->start_handle = BR_GRP_HDL;
+            gatt_data->end_handle = BR_BD_ADDR_CHRC_HDL;
+            memcpy(gatt_data->value, br_grp_base_uuid, sizeof(br_grp_base_uuid));
+            len += rd_grp_rsp->len;
+        }
+    }
     else {
         rd_grp_rsp->len = 20;
 
-        if (start <= BR_GRP_HDL && end >= LAST_HDL) {
-            gatt_data->start_handle = BR_GRP_HDL;
-            gatt_data->end_handle = LAST_HDL;
-            memcpy(gatt_data->value, br_grp_base_uuid, sizeof(br_grp_base_uuid));
+        if (start <= MIDI_GRP_HDL && end >= LAST_HDL) {
+            gatt_data->start_handle = MIDI_GRP_HDL;
+            gatt_data->end_handle = MIDI_DATA_IO_CCCD_HDL;
+            memcpy(gatt_data->value, midi_svc_uuid, sizeof(midi_svc_uuid));
             len += rd_grp_rsp->len;
         }
     }
@@ -560,7 +616,12 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
         {
             struct bt_att_find_info_req *find_info_req = (struct bt_att_find_info_req *)bt_hci_acl_pkt->att_data;
             printf("# BT_ATT_OP_FIND_INFO_REQ %04X %04X\n", find_info_req->start_handle, find_info_req->end_handle);
-            bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_INFO_REQ, find_info_req->start_handle, BT_ATT_ERR_NOT_SUPPORTED);
+            if (find_info_req->start_handle <= MIDI_DATA_IO_CCCD_HDL && find_info_req->end_handle >= MIDI_DATA_IO_CCCD_HDL) {
+                bt_att_cmd_midi_find_info_req(device->acl_handle);
+            }
+            else {
+                bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_INFO_REQ, find_info_req->start_handle, BT_ATT_ERR_ATTRIBUTE_NOT_FOUND);
+            }
             break;
         }
         case BT_ATT_OP_FIND_TYPE_REQ:
@@ -573,7 +634,7 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
         case BT_ATT_OP_READ_TYPE_REQ:
         {
             struct bt_att_read_type_req *rd_type_req = (struct bt_att_read_type_req *)bt_hci_acl_pkt->att_data;
-            printf("# BT_ATT_OP_READ_TYPE_REQ\n");
+            printf("# BT_ATT_OP_READ_TYPE_REQ %04X %04X\n", rd_type_req->start_handle, rd_type_req->end_handle);
             uint16_t start = rd_type_req->start_handle;
             uint16_t end = rd_type_req->end_handle;
 
@@ -587,8 +648,12 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     bt_att_cmd_gap_char_read_type_rsp(device->acl_handle);
                 }
                 /* BLUERETRO */
-                else if (start >= GAP_PPCP_CHRC_HDL && start < LAST_HDL && end >= LAST_HDL) {
+                else if (start >= GAP_PPCP_CHRC_HDL && start < BR_BD_ADDR_CHRC_HDL && end >= BR_BD_ADDR_CHRC_HDL) {
                     bt_att_cmd_blueretro_char_read_type_rsp(device->acl_handle, start);
+                }
+                /* BLE-MIDI */
+                else if (start >= BR_BD_ADDR_CHRC_HDL && start < LAST_HDL && end >= LAST_HDL) {
+                    bt_att_cmd_midi_char_read_type_rsp(device->acl_handle);
                 }
                 else {
                     bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_READ_TYPE_REQ, rd_type_req->start_handle, BT_ATT_ERR_ATTRIBUTE_NOT_FOUND);
@@ -686,7 +751,7 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
         case BT_ATT_OP_READ_GROUP_REQ:
         {
             struct bt_att_read_group_req *rd_grp_req = (struct bt_att_read_group_req *)bt_hci_acl_pkt->att_data;
-            printf("# BT_ATT_OP_READ_GROUP_REQ\n");
+            printf("# BT_ATT_OP_READ_GROUP_REQ %04X %04X\n", rd_grp_req->start_handle, rd_grp_req->end_handle);
             if (rd_grp_req->start_handle < MAX_HDL && *(uint16_t *)rd_grp_req->uuid == BT_UUID_GATT_PRIMARY) {
                 bt_att_cmd_read_group_rsp(device->acl_handle, rd_grp_req->start_handle, rd_grp_req->end_handle);
             }
