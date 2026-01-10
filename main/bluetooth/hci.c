@@ -833,18 +833,18 @@ static void bt_hci_cmd_le_set_adv_data(void *cp) {
 
 static void bt_hci_cmd_le_set_scan_rsp_data(void *cp) {
     uint8_t scan_rsp[31] = {
-        0x0a, BT_DATA_NAME_COMPLETE, 0x00
+        0x11, BT_DATA_UUID128_ALL, 0x00, 0xc7, 0xc4, 0x4e, 0xe3, 0x6c, 0x51, 0xa7, 0x33, 0x4b, 0xe8, 0xed, 0x5a, 0x0e, 0xb8, 0x03,
+        0x0a, BT_DATA_NAME_SHORTENED,
     };
 
     struct bt_hci_cp_le_set_scan_rsp_data *le_set_scan_rsp_data = (struct bt_hci_cp_le_set_scan_rsp_data *)&bt_hci_pkt_tmp.cp;
     printf("# %s\n", __FUNCTION__);
 
-    scan_rsp[0] = strlen(bt_hci_get_device_name()) + 1;
-    strncat((char *)scan_rsp, bt_hci_get_device_name(), 22);
+    memcpy(&scan_rsp[20], bt_hci_get_device_name(), 9); // "BlueRetro"
 
     memset(le_set_scan_rsp_data->data, 0, sizeof(le_set_scan_rsp_data->data));
-    le_set_scan_rsp_data->len = strlen((char *)scan_rsp);
-    memcpy(le_set_scan_rsp_data->data, scan_rsp, strlen((char *)scan_rsp));
+    le_set_scan_rsp_data->len = sizeof(scan_rsp);
+    memcpy(le_set_scan_rsp_data->data, scan_rsp, sizeof(scan_rsp));
 
     bt_hci_cmd(BT_HCI_OP_LE_SET_SCAN_RSP_DATA, sizeof(*le_set_scan_rsp_data));
 }
