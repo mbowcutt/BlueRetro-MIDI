@@ -595,6 +595,10 @@ static void bt_att_cfg_cmd_wr_hdlr(struct bt_dev *device, uint8_t *data, uint32_
     bt_att_cmd_wr_rsp(device->acl_handle);
 }
 
+static void bt_att_midi_write(uint8_t * data, uint32_t len) {
+    printf("# %s len=%lu\n", __FUNCTION__, len);
+}
+
 void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {
     switch (bt_hci_acl_pkt->att_hdr.code) {
         case BT_ATT_OP_MTU_REQ:
@@ -717,6 +721,9 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                         atomic_set_bit(&device->flags, BT_DEV_PPCP_DONE);
                     }
                     bt_att_cfg_cmd_rd_hdlr(device->acl_handle);
+                    break;
+                case MIDI_DATA_IO_CHRC_HDL:
+                    bt_att_cmd(device->acl_handle, BT_ATT_OP_READ_RSP, 0);
                     break;
                 default:
                     bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_READ_REQ, rd_req->handle, BT_ATT_ERR_INVALID_HANDLE);
@@ -855,6 +862,23 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                 config_update(config_get_src());
             }
             bt_att_cmd_exec_wr_rsp(device->acl_handle);
+            break;
+        }
+        case BT_ATT_OP_WRITE_CMD:
+        {
+            struct bt_att_write_cmd *wr_cmd = (struct bt_att_write_cmd *)bt_hci_acl_pkt->att_data;
+            uint32_t att_len = len - (BT_HCI_H4_HDR_SIZE + BT_HCI_ACL_HDR_SIZE + sizeof(struct bt_l2cap_hdr) + sizeof(struct bt_att_hdr));
+            uint32_t data_len = att_len - sizeof(wr_cmd->handle);
+
+            printf("# BT_ATT_OP_WRITE_CMD len: %lu\n", data_len);
+            switch (wr_cmd->handle) {
+                case MIDI_DATA_IO_CHRC_HDL:
+                    bt_att_midi_write(wr_cmd->value, data_len);
+                    break;
+                default:
+                    bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_WRITE_CMD, wr_cmd->handle, BT_ATT_ERR_INVALID_HANDLE);
+                    break;
+            }
             break;
         }
         default:
