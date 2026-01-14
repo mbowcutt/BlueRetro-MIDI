@@ -43,6 +43,9 @@
 
 #define GAME_ID_CMD 0x1D
 
+#define MIDI_RX_CMD 0xD0
+#define MIDI_TX_CMD 0xD1
+
 #define RMT_MEM_ITEM_NUM SOC_RMT_MEM_WORDS_PER_CHANNEL
 
 typedef struct {
@@ -374,6 +377,31 @@ static void n64_pad_cmd_hdlr(uint8_t channel, uint8_t port, uint16_t item) {
                     addr += ((channel + ctrl_mem_banksel) & 0x3) * 32 * 1024;
                     mc_write(addr, buf + 2, 32);
                 }
+            }
+            break;
+        case MIDI_RX_CMD:
+            {
+                // Get expected byte length
+                item = nsi_items_to_bytes(item, buf, 1);
+                uint8_t max_len = buf[0];
+                if (max_len > 31)
+                {
+                    max_len = 31;
+                }
+
+                // Read out MIDI bytes and write actual length back
+                const uint32_t actual_len = midi_out_read(&buf[1], max_len);
+                buf[0] = actual_len;
+
+                // Convert bytes and begin transmit
+                nsi_bytes_to_items_crc(channel * RMT_MEM_ITEM_NUM,
+                                       buf, actual_len + 1, &crc, STOP_BIT_2US);
+                RMT.conf_ch[channel].conf1.tx_start = 1;
+            }
+            break;
+        case MIDI_TX_CMD:
+            {
+                // TODO
             }
             break;
         default:
