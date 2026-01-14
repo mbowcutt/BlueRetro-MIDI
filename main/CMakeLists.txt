@@ -41,6 +41,7 @@ set(cov_srcs
     "bluetooth/att_cfg.c"
     "bluetooth/att_hid.c"
     "bluetooth/smp.c"
+    "bluetooth/midi.c"
     "bluetooth/mon.c"
     "bluetooth/hidp/hidp.c"
     "bluetooth/hidp/generic.c"

@@ -19,6 +19,7 @@
 #include "adapter/gameid.h"
 #include "system/manager.h"
 #include "system/fs.h"
+#include "midi.h"
 
 #define ATT_MAX_LEN 512
 #define BR_ABI_VER 2
@@ -595,10 +596,6 @@ static void bt_att_cfg_cmd_wr_hdlr(struct bt_dev *device, uint8_t *data, uint32_
     bt_att_cmd_wr_rsp(device->acl_handle);
 }
 
-static void bt_att_midi_write(uint8_t * data, uint32_t len) {
-    printf("# %s len=%lu\n", __FUNCTION__, len);
-}
-
 void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, uint32_t len) {
     switch (bt_hci_acl_pkt->att_hdr.code) {
         case BT_ATT_OP_MTU_REQ:
@@ -873,7 +870,7 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
             printf("# BT_ATT_OP_WRITE_CMD len: %lu\n", data_len);
             switch (wr_cmd->handle) {
                 case MIDI_DATA_IO_CHRC_HDL:
-                    bt_att_midi_write(wr_cmd->value, data_len);
+                    midi_parse_ble_packet(wr_cmd->value, data_len);
                     break;
                 default:
                     bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_WRITE_CMD, wr_cmd->handle, BT_ATT_ERR_INVALID_HANDLE);

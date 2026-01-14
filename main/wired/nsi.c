@@ -22,6 +22,7 @@
 #include "system/gpio.h"
 #include "system/intr.h"
 #include "nsi.h"
+#include "bluetooth/midi.h"
 
 #define BIT_ZERO 0x80020006
 #define BIT_ONE  0x80060002
