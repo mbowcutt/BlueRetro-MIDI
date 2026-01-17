@@ -383,7 +383,7 @@ static void n64_pad_cmd_hdlr(uint8_t channel, uint8_t port, uint16_t item) {
             {
                 // Get expected byte length
                 item = nsi_items_to_bytes(item, buf, 1);
-                uint8_t max_len = buf[0];
+                uint32_t max_len = buf[0];
                 if (max_len > 31)
                 {
                     max_len = 31;

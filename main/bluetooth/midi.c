@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "esp_attr.h"
+
 #define MIDI_BUF_SIZE 256u
 #define MIDI_BUF_MASK (MIDI_BUF_SIZE - 1u)
 
@@ -72,7 +74,7 @@ void midi_parse_ble_packet(uint8_t * data, uint32_t len)
     }
 }
 
-uint32_t midi_out_read(uint8_t * buf, uint32_t max_len)
+uint32_t IRAM_ATTR midi_out_read(uint8_t * buf, uint32_t max_len)
 {
     uint32_t count = 0;
     uint32_t head = atomic_load(&midi_out.head);
@@ -83,6 +85,8 @@ uint32_t midi_out_read(uint8_t * buf, uint32_t max_len)
         buf[count++] = midi_out.data[tail];
         tail = (tail + 1) & MIDI_BUF_MASK;
     }
+
+    atomic_store(&midi_out.tail, tail);
 
     return count;
 }
