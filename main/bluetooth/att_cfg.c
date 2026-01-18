@@ -223,19 +223,53 @@ static void bt_att_cmd_midi_char_read_type_rsp(uint16_t handle) {
     bt_att_cmd(handle, BT_ATT_OP_READ_TYPE_RSP, sizeof(rd_type_rsp->len) + rd_type_rsp->len);
 }
 
-static void bt_att_cmd_midi_find_info_req(uint16_t handle) {
+static void bt_att_cmd_midi_find_info_req(uint16_t handle, uint16_t start, uint16_t end) {
     struct bt_att_find_info_rsp *find_info_rsp = (struct bt_att_find_info_rsp *)bt_hci_pkt_tmp.att_data;
     uint8_t *data = find_info_rsp->info;
 
     printf("# %s\n", __FUNCTION__);
 
-    find_info_rsp->format = BT_ATT_INFO_16;
+    uint16_t len = 0;
 
-    *(uint16_t *)data = MIDI_DATA_IO_CCCD_HDL;
-    data += 2;
-    *(uint16_t *)data = BT_UUID_GATT_CCC;
+    if (start <= MIDI_GRP_HDL)
+    {
+        find_info_rsp->format = BT_ATT_INFO_16;
 
-    bt_att_cmd(handle, BT_ATT_OP_FIND_INFO_RSP, sizeof(find_info_rsp->format) + 4);
+        *(uint16_t *)data = MIDI_GRP_HDL;
+        data += 2;
+        len += 2;
+        *(uint16_t *)data = BT_UUID_GATT_PRIMARY;
+        data += 2;
+        len += 2;
+
+        *(uint16_t *)data = MIDI_DATA_IO_ATT_HDL;
+        data += 2;
+        len += 2;
+        *(uint16_t *)data = BT_UUID_GATT_CHRC;
+        len += 2;
+    }
+    else if (start == MIDI_DATA_IO_CHRC_HDL)
+    {
+        find_info_rsp->format = BT_ATT_INFO_128;
+
+        *(uint16_t *)data = MIDI_DATA_IO_CHRC_HDL;
+        data += 2;
+        len += 2;
+        memcpy(data, midi_char_uuid, sizeof(midi_char_uuid));
+        len += 16;
+    }
+    else if (start == MIDI_DATA_IO_CCCD_HDL)
+    {
+        find_info_rsp->format = BT_ATT_INFO_16;
+
+        *(uint16_t *)data = MIDI_DATA_IO_CCCD_HDL;
+        data += 2;
+        len += 2;
+        *(uint16_t *)data = BT_UUID_GATT_CCC;
+        len += 2;
+    }
+
+    bt_att_cmd(handle, BT_ATT_OP_FIND_INFO_RSP, sizeof(find_info_rsp->format) + len);
 }
 
 static void bt_att_cmd_dev_name_rd_rsp(uint16_t handle) {
@@ -618,7 +652,7 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
             struct bt_att_find_info_req *find_info_req = (struct bt_att_find_info_req *)bt_hci_acl_pkt->att_data;
             printf("# BT_ATT_OP_FIND_INFO_REQ %04X %04X\n", find_info_req->start_handle, find_info_req->end_handle);
             if (find_info_req->start_handle <= MIDI_DATA_IO_CCCD_HDL && find_info_req->end_handle >= MIDI_DATA_IO_CCCD_HDL) {
-                bt_att_cmd_midi_find_info_req(device->acl_handle);
+                bt_att_cmd_midi_find_info_req(device->acl_handle, find_info_req->start_handle, find_info_req->end_handle);
             }
             else {
                 bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_INFO_REQ, find_info_req->start_handle, BT_ATT_ERR_ATTRIBUTE_NOT_FOUND);
