@@ -628,8 +628,80 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
         case BT_ATT_OP_FIND_TYPE_REQ:
         {
             struct bt_att_find_type_req *fd_type_req = (struct bt_att_find_type_req *)bt_hci_acl_pkt->att_data;
-            printf("# BT_ATT_OP_FIND_TYPE_REQ %04X %04X\n", fd_type_req->start_handle, fd_type_req->end_handle);
-            bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_TYPE_REQ, fd_type_req->start_handle, BT_ATT_ERR_NOT_SUPPORTED);
+            printf("# BT_ATT_OP_FIND_TYPE_REQ %04X %04X (type=%04X)\n", fd_type_req->start_handle,
+                                                                        fd_type_req->end_handle,
+                                                                        fd_type_req->type);
+            if ((fd_type_req->start_handle == 0x0000) || (fd_type_req->start_handle > fd_type_req->end_handle))
+            {
+                bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_TYPE_REQ, fd_type_req->start_handle, BT_ATT_ERR_INVALID_HANDLE);
+            }
+            else if (BT_UUID_GATT_PRIMARY != fd_type_req->type)
+            {
+                bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_TYPE_REQ, fd_type_req->start_handle, BT_ATT_ERR_UNSUPPORTED_GROUP_TYPE);
+            }
+            else
+            {
+                struct bt_att_find_type_rsp * fd_type_rsp = (struct bt_att_find_type_rsp *)bt_hci_pkt_tmp.att_data;
+                struct bt_att_handle_group * rsp_list = fd_type_rsp->list;
+
+                uint32_t att_len = len - (BT_HCI_H4_HDR_SIZE + BT_HCI_ACL_HDR_SIZE + sizeof(struct bt_l2cap_hdr) + sizeof(struct bt_att_hdr));
+                uint32_t value_len = att_len - (sizeof(fd_type_req->start_handle) + sizeof(fd_type_req->end_handle) + sizeof(fd_type_req->type));
+
+                if (2 == value_len)
+                {
+                    // Handle standard services
+                    uint16_t val_uuid = *(uint16_t *)(fd_type_req->value);
+                    if (BT_UUID_GAP == val_uuid
+                        && (GAP_GRP_HDL >= fd_type_req->start_handle)
+                        && (GAP_GRP_HDL <= fd_type_req->end_handle))
+                    {
+                        rsp_list[0].start_handle = GAP_GRP_HDL;
+                        rsp_list[0].end_handle = GAP_PPCP_CHRC_HDL;
+                        bt_att_cmd(device->acl_handle, BT_ATT_OP_FIND_TYPE_RSP, 4);
+                    }
+                    else if (BT_UUID_GATT == val_uuid
+                             && (GATT_GRP_HDL >= fd_type_req->start_handle)
+                             && (GATT_GRP_HDL <= fd_type_req->end_handle))
+                    {
+                        rsp_list[0].start_handle = GATT_GRP_HDL;
+                        rsp_list[0].end_handle = GATT_SRVC_CH_CHRC_HDL;
+                        bt_att_cmd(device->acl_handle, BT_ATT_OP_FIND_TYPE_RSP, 4);
+                    }
+                    else
+                    {
+                        bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_TYPE_REQ, fd_type_req->start_handle, BT_ATT_ERR_ATTRIBUTE_NOT_FOUND);
+                    }
+                }
+                else if (16 == value_len)
+                {
+                    // Handle BR and MIDI services
+                    if ((0 == memcmp(fd_type_req->value, br_grp_base_uuid, 16))
+                        && (BR_GRP_HDL >= fd_type_req->start_handle)
+                        && (BR_GRP_HDL <= fd_type_req->end_handle))
+                    {
+                        rsp_list[0].start_handle = BR_GRP_HDL;
+                        rsp_list[0].end_handle = BR_BD_ADDR_CHRC_HDL;
+                        bt_att_cmd(device->acl_handle, BT_ATT_OP_FIND_TYPE_RSP, 4);
+                    }
+                    else if (0 == memcmp(fd_type_req->value, midi_svc_uuid, 16)
+                             && (MIDI_GRP_HDL >= fd_type_req->start_handle)
+                             && (MIDI_GRP_HDL <= fd_type_req->end_handle))
+                    {
+                        rsp_list[0].start_handle = MIDI_GRP_HDL;
+                        rsp_list[0].end_handle = MIDI_DATA_IO_CCCD_HDL;
+                        bt_att_cmd(device->acl_handle, BT_ATT_OP_FIND_TYPE_RSP, 4);
+                    }
+                    else
+                    {
+                        bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_TYPE_REQ, fd_type_req->start_handle, BT_ATT_ERR_ATTRIBUTE_NOT_FOUND);
+                    }
+                }
+                else
+                {
+                    bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_FIND_TYPE_REQ, fd_type_req->start_handle, BT_ATT_ERR_ATTRIBUTE_NOT_FOUND);
+                }
+            }
+
             break;
         }
         case BT_ATT_OP_READ_TYPE_REQ:
