@@ -2,6 +2,7 @@
 
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -19,6 +20,8 @@ typedef struct
 } midi_ringbuf_t;
 
 static midi_ringbuf_t midi_out;
+
+static bool notify_en = false;
 
 static inline void midi_buf_write_byte(midi_ringbuf_t * buf, uint8_t byte)
 {
@@ -38,8 +41,20 @@ void midi_init(void)
     atomic_store(&midi_out.tail, 0);
 }
 
+void midi_set_notify(bool enable)
+{
+    notify_en = enable;
+}
+
 void midi_parse_ble_packet(uint8_t * data, uint32_t len)
 {
+    printf("[BLE-MIDI] Write: ");
+    for (uint32_t idx = 0; idx < len; ++idx)
+    {
+        printf("%X", data[idx]);
+    }
+    printf("\n");
+
     // Discard the Header Byte, then discard only Timestamp Bytes.
     // Only MIDI message Status and Data bytes are written to the buffer.
     bool expect_timestamp = true;

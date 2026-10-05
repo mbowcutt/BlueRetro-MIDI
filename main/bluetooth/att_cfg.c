@@ -759,7 +759,7 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     bt_att_cmd_blueretro_char_read_type_rsp(device->acl_handle, start);
                 }
                 /* BLE-MIDI */
-                else if (start >= BR_BD_ADDR_CHRC_HDL && start < LAST_HDL && end >= LAST_HDL) {
+                else if (start <= MIDI_DATA_IO_ATT_HDL && end >= MIDI_DATA_IO_ATT_HDL) {
                     bt_att_cmd_midi_char_read_type_rsp(device->acl_handle);
                 }
                 else {
@@ -925,6 +925,31 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     mc_offset += data_len;
                     bt_att_cmd_wr_rsp(device->acl_handle);
                     break;
+                case MIDI_DATA_IO_CCCD_HDL:
+                {
+                    uint16_t cccd_value;
+
+                    if (sizeof(cccd_value) != data_len)
+                    {
+                        bt_att_cmd_error_rsp(device->acl_handle,
+                                             BT_ATT_OP_WRITE_REQ,
+                                             wr_req->handle,
+                                             BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+                        break;
+                    }
+
+                    memcpy(&cccd_value, wr_req->value, sizeof(cccd_value));
+                    if (cccd_value != 0 && cccd_value != BT_GATT_CCC_NOTIFY) {
+                        bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_WRITE_REQ, wr_req->handle,
+                            BT_ATT_ERR_VALUE_NOT_ALLOWED);
+                        break;
+                    }
+
+                    midi_set_notify(BT_GATT_CCC_NOTIFY == cccd_value);
+
+                    bt_att_cmd_wr_rsp(device->acl_handle);
+                    break;
+                }
                 default:
                     bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_WRITE_REQ, wr_req->handle, BT_ATT_ERR_INVALID_HANDLE);
                     break;
@@ -979,6 +1004,7 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
                     midi_parse_ble_packet(wr_cmd->value, data_len);
                     break;
                 default:
+                    printf("\tInvalid handle: %04X\n", wr_cmd->handle);
                     bt_att_cmd_error_rsp(device->acl_handle, BT_ATT_OP_WRITE_CMD, wr_cmd->handle, BT_ATT_ERR_INVALID_HANDLE);
                     break;
             }
