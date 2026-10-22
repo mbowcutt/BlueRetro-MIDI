@@ -20,6 +20,7 @@ typedef struct
 } midi_ringbuf_t;
 
 static midi_ringbuf_t midi_out;
+static midi_ringbuf_t midi_in;
 
 static bool notify_en = false;
 
@@ -39,6 +40,10 @@ void midi_init(void)
     memset(midi_out.data, 0x00, MIDI_BUF_SIZE);
     atomic_store(&midi_out.head, 0);
     atomic_store(&midi_out.tail, 0);
+
+    memset(midi_in.data, 0x00, MIDI_BUF_SIZE);
+    atomic_store(&midi_in.head, 0);
+    atomic_store(&midi_in.tail, 0);
 }
 
 void midi_set_notify(bool enable)
@@ -104,4 +109,12 @@ uint32_t IRAM_ATTR midi_out_read(uint8_t * buf, uint32_t max_len)
     atomic_store(&midi_out.tail, tail);
 
     return count;
+}
+
+void IRAM_ATTR midi_in_write(uint8_t * buf, uint32_t len)
+{
+    for (uint32_t idx = 0; idx < len; ++idx)
+    {
+        midi_buf_write_byte(&midi_in, buf[idx]);
+    }
 }
