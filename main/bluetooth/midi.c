@@ -24,7 +24,7 @@ static midi_ringbuf_t midi_in;
 
 static bool notify_en = false;
 
-static inline void midi_buf_write_byte(midi_ringbuf_t * buf, uint8_t byte)
+static inline void IRAM_ATTR midi_buf_write_byte(midi_ringbuf_t * buf, uint8_t byte)
 {
     uint32_t head = atomic_load(&buf->head);
     uint32_t next = (head + 1) & MIDI_BUF_MASK;

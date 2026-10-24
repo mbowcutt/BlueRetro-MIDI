@@ -381,23 +381,24 @@ static void n64_pad_cmd_hdlr(uint8_t channel, uint8_t port, uint16_t item) {
         case MIDI_CMD:
             {
                 // Get expected byte length
-                item = nsi_items_to_bytes(item, buf, 2);
+                item = nsi_items_to_bytes(item, buf, 1);
                 uint8_t in_len = buf[0];
-                uint8_t out_len = buf[1];
-
                 if (in_len > 64)
                 {
                     in_len = 64;
-                }
-                if (out_len > 64)
-                {
-                    out_len = 64;
                 }
 
                 if (in_len > 0)
                 {
                     item = nsi_items_to_bytes(item, buf, in_len);
                     midi_in_write(buf, in_len);
+                }
+
+                item = nsi_items_to_bytes(item, buf, 1);
+                uint8_t out_len = buf[0];
+                if (out_len > 64)
+                {
+                    out_len = 64;
                 }
 
                 // Read out MIDI bytes and write actual length back
