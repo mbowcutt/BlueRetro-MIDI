@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-void midi_init(void);
+bool midi_init(void);
 
 void midi_parse_ble_packet(uint8_t * data, uint32_t len);
 

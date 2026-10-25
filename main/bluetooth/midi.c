@@ -8,6 +8,9 @@
 
 #include "esp_attr.h"
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 #define MIDI_BUF_SIZE 256u
 #define MIDI_BUF_MASK (MIDI_BUF_SIZE - 1u)
 
@@ -35,7 +38,28 @@ static inline void IRAM_ATTR midi_buf_write_byte(midi_ringbuf_t * buf, uint8_t b
     }
 }
 
-void midi_init(void)
+static void midi_in_task(void * param)
+{
+    while (1) {
+        uint32_t head = atomic_load(&midi_in.head);
+        uint32_t tail = atomic_load(&midi_in.tail);
+
+        if (head != tail)
+        {
+            printf("MIDI IN: (head=%lu)(tail=%lu)", head, tail);
+            while (head != tail) {
+                printf("%X ", midi_in.data[tail]);
+                tail = (tail + 1) & MIDI_BUF_MASK;
+            };
+            printf("\n");
+            atomic_store(&midi_in.tail, head);
+        }
+
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+    }
+}
+
+bool midi_init(void)
 {
     memset(midi_out.data, 0x00, MIDI_BUF_SIZE);
     atomic_store(&midi_out.head, 0);
@@ -44,6 +68,10 @@ void midi_init(void)
     memset(midi_in.data, 0x00, MIDI_BUF_SIZE);
     atomic_store(&midi_in.head, 0);
     atomic_store(&midi_in.tail, 0);
+
+    xTaskCreatePinnedToCore(&midi_in_task, "midi_in_task", 2048, NULL, 5, NULL, 0);
+
+    return true;
 }
 
 void midi_set_notify(bool enable)

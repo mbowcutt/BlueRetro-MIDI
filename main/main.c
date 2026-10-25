@@ -20,6 +20,7 @@
 #include "adapter/adapter_debug.h"
 #include "adapter/config.h"
 #include "bluetooth/host.h"
+#include "bluetooth/midi.h"
 #include "wired/detect.h"
 #include "wired/wired_bare.h"
 #include "wired/wired_rtos.h"
@@ -120,6 +121,12 @@ static void wl_init_task(void *arg) {
         printf("Bluetooth init fail!\n");
     }
 #endif
+
+    if (!midi_init())  {
+        err_led_set();
+        err = 1;
+        printf("MIDI init fail!\n");
+    }
 
     if (wired_adapter.system_id < WIRED_MAX) {
         wired_rtos_init();
