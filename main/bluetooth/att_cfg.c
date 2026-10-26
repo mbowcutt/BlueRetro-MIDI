@@ -109,6 +109,11 @@ static uint8_t cfg_cmd = 0;
 static DIR *d = NULL;
 static struct dirent *dir = NULL;
 
+uint16_t bt_att_cfg_get_mtu_size(void)
+{
+    return mtu;
+}
+
 static void bt_att_cmd_gatt_char_read_type_rsp(uint16_t handle) {
     struct bt_att_read_type_rsp *rd_type_rsp = (struct bt_att_read_type_rsp *)bt_hci_pkt_tmp.att_data;
     uint8_t *data = rd_type_rsp->data->value;
@@ -1013,4 +1018,15 @@ void bt_att_cfg_hdlr(struct bt_dev *device, struct bt_hci_pkt *bt_hci_acl_pkt, u
         default:
             printf("# Unsupported OPCODE: 0x%02X\n", bt_hci_acl_pkt->att_hdr.code);
     }
+}
+
+void bt_att_cfg_midi_tx(uint8_t * buffer, uint32_t len)
+{
+    struct bt_att_notify * notify_msg = (struct bt_att_notify *)bt_hci_pkt_tmp.att_data;
+    notify_msg->handle = MIDI_DATA_IO_CHRC_HDL;
+    memcpy(notify_msg->value, buffer, len);
+
+    struct bt_dev * device;
+    bt_host_get_dev_conf(&device);
+    bt_att_cmd(device->acl_handle, BT_ATT_OP_NOTIFY, len + 2);
 }

@@ -11,6 +11,7 @@ void midi_parse_ble_packet(uint8_t * data, uint32_t len);
 void midi_set_notify(bool enable);
 
 uint32_t midi_out_read(uint8_t * buf, uint32_t max_len);
+uint32_t midi_in_read(uint8_t * buf, uint32_t max_len);
 void midi_in_write(uint8_t * buf, uint32_t len);
 
 #endif /* _MIDI_H_ */
